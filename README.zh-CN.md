@@ -2,27 +2,40 @@
 
 [English](README.md) · [简体中文](README.zh-CN.md)
 
+[![License](https://img.shields.io/badge/license-Apache--2.0-2f6fed)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.11+-3776AB)](https://www.python.org/)
+[![Windows](https://img.shields.io/badge/os-Windows%2010%2B-0078D6)](https://github.com/mercury666cn/workbench-camera)
+[![PySide6](https://img.shields.io/badge/PySide6-6.8.3-41CD52)](requirements.txt)
+
 把任意安卓手机的后置镜头，变成 Windows 上的工作台 / 文档相机。实时预览、真变焦、点哪对哪、抓拍录像、连扫，可选 OCR。手机不用装 App。
 
-手机只当 USB 摄像头，操作都在电脑上完成。
+![工作台相机封面](docs/hero.png)
 
 ## 功能
 
-- **实时预览**：走后置摄像头，不是镜像手机桌面
-- **真变焦**：Camera2 的 `CONTROL_ZOOM_RATIO`，不是电脑裁中间放大
-- **点哪对哪**：点预览画面就对那一块；「重新对焦」只对中心再找一次，不关相机
-- **抓拍 / 录像**：默认存到文档目录
-- **连扫**：多页纸连续拍
-- **可选 OCR**：接到你自己的 [LM Studio](https://lmstudio.ai/)
+- USB 后置预览，不是镜像手机桌面
+- 相机变焦，点预览画面哪里就对哪里
+- 抓拍、录像、多页连扫
+- 可选接到你自己的 LM Studio 做识别
 
-## 环境
+## 界面
 
-- Windows 10 或更新
-- Python 3.11 或更新
-- 安卓手机，打开 **USB 调试**
-- 能传数据的 USB 线（不要只能充电的线）
+下面是按软件风格做的示意，不是像素级截图。
 
-**PySide6 必须锁 `6.8.3`。** 更新的版本（例如 6.11）在 Windows 10 上可能 DLL 加载失败。
+<table>
+  <tr>
+    <td align="center" width="50%">
+      <img src="docs/ui-workbench.png" alt="工作台页示意" />
+      <br />
+      <sub>工作台 — 预览、变焦、点选对焦、抓拍</sub>
+    </td>
+    <td align="center" width="50%">
+      <img src="docs/ui-scan.png" alt="扫描页示意" />
+      <br />
+      <sub>扫描 — 分页、识别、导出 Word</sub>
+    </td>
+  </tr>
+</table>
 
 ## 快速开始
 
@@ -30,15 +43,22 @@
 2. 双击 `run.bat`。第一次会建虚拟环境、装依赖，并下载 [scrcpy](https://github.com/Genymobile/scrcpy) 4.1（自带 ADB）。
 3. 点 **开启预览**。点画面可以对焦，拖拉条可以变焦。
 
-也可以手动：
-
 ```bat
 python -m venv .venv
 .venv\Scripts\pip install -r requirements.txt
 .venv\Scripts\python -m app
 ```
 
+**PySide6 必须锁 `6.8.3`。** 更新的版本（例如 6.11）在 Windows 10 上可能 DLL 加载失败。
+
 文件默认保存在 `文档\工作台相机`。
+
+## 环境
+
+- Windows 10 或更新
+- Python 3.11 或更新
+- 安卓手机，打开 USB 调试
+- 能传数据的 USB 线（不要只能充电的线）
 
 ## 用法
 
@@ -52,7 +72,7 @@ python -m venv .venv
 
 ### 可选：LM Studio OCR
 
-OCR 不是必须的。预览、变焦、对焦、抓拍、录像可以单独用。
+预览、变焦、对焦、抓拍、录像可以单独用，OCR 不是必须的。
 
 1. 打开 LM Studio，加载一个带视觉能力的模型。
 2. 打开本地服务（默认 `http://127.0.0.1:1234/v1`）。
