@@ -1,0 +1,14 @@
+{
+  "include": ["app"],
+  "exclude": [
+    ".venv",
+    "venv",
+    "tools",
+    "data",
+    ".specstory"
+  ],
+  "venvPath": ".",
+  "venv": ".venv",
+  "pythonVersion": "3.11",
+  "typeCheckingMode": "off"
+}

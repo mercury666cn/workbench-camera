@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+tools/scrcpy/
+data/config.json
+data/jobs/
+data/_probe*.py
+data/*.log
+*.mkv
+*.mp4
+.DS_Store
+.specstory/
+.idea/

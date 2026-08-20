@@ -1,0 +1,37 @@
+{
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/Scripts/python.exe",
+  "python.languageServer": "None",
+  "cursorpyright.analysis.diagnosticMode": "openFilesOnly",
+  "cursorpyright.analysis.exclude": [
+    "**/.venv/**",
+    "**/venv/**",
+    "**/tools/scrcpy-v4.1-src/**",
+    "**/tools/scrcpy/**",
+    "**/.specstory/**",
+    "**/data/**"
+  ],
+  "python.analysis.exclude": [
+    "**/.venv/**",
+    "**/venv/**",
+    "**/tools/scrcpy-v4.1-src/**",
+    "**/tools/scrcpy/**",
+    "**/.specstory/**",
+    "**/data/**"
+  ],
+  "python.analysis.ignore": [
+    "**/.venv/**",
+    "**/venv/**",
+    "**/tools/scrcpy-v4.1-src/**",
+    "**/tools/scrcpy/**",
+    "**/.specstory/**",
+    "**/data/**"
+  ],
+  "files.watcherExclude": {
+    "**/.venv/**": true,
+    "**/venv/**": true,
+    "**/tools/scrcpy-v4.1-src/**": true,
+    "**/tools/scrcpy/**": true,
+    "**/.gradle/**": true,
+    "**/.specstory/**": true
+  }
+}

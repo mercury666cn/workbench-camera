@@ -1,0 +1,7 @@
+.venv/
+venv/
+tools/scrcpy/
+data/
+*.mkv
+*.mp4
+__pycache__/
