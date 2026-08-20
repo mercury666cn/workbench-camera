@@ -8,7 +8,6 @@ import subprocess
 import threading
 import time
 from collections.abc import Callable
-from pathlib import Path
 
 import av
 import numpy as np
@@ -25,6 +24,8 @@ ZOOM_FACTOR = 1.0 + 1.0 / 16.0
 MSG_CAMERA_ZOOM_IN = 19
 MSG_CAMERA_ZOOM_OUT = 20
 MSG_CAMERA_AF_TAP = 23
+MSG_CAMERA_PAUSE = 24
+MSG_CAMERA_RESUME = 25
 CODEC_H264 = 0x68323634
 
 
@@ -60,6 +61,7 @@ class ScrcpyCameraClient:
         self._scid = 0
         self._silenced = False
         self.running = False
+        self.camera_active = False
         self.last_log: list[str] = []
 
     def set_callbacks(self, on_frame: FrameCallback | None, on_error: ErrorCallback | None) -> None:
@@ -78,7 +80,6 @@ class ScrcpyCameraClient:
         self._scid = int(time.time() * 1000) & 0x7FFFFFFF
         self._local_port = _free_port()
         try:
-            self._kill_stale_servers()
             self._push_server()
             self._forward()
             self._proc = self._spawn_server()
@@ -88,6 +89,7 @@ class ScrcpyCameraClient:
             self._cleanup()
             raise CameraClientError(str(exc)) from exc
         self.running = True
+        self.camera_active = True
         self._thread = threading.Thread(target=self._decode_loop, name="scrcpy-cam-decode", daemon=True)
         self._thread.start()
         threading.Thread(target=self._drain_control, name="scrcpy-cam-ctrl", daemon=True).start()
@@ -95,9 +97,36 @@ class ScrcpyCameraClient:
     def stop(self) -> None:
         self._stop.set()
         self.running = False
+        self.camera_active = False
         self._cleanup()
+        self.phone.skip_stale_kill = True
         with self._lock:
             self._last_frame = None
+
+    def pause_camera(self) -> None:
+        if not self.running or not self.camera_active:
+            return
+        self._send_empty_control(MSG_CAMERA_PAUSE, "暂停相机")
+        self.camera_active = False
+        with self._lock:
+            self._last_frame = None
+
+    def resume_camera(self) -> None:
+        if not self.running or self.camera_active:
+            return
+        self._send_empty_control(MSG_CAMERA_RESUME, "恢复相机")
+        self.camera_active = True
+
+    def _send_empty_control(self, message_type: int, action: str) -> None:
+        sock = self._control
+        if sock is None:
+            raise CameraClientError(f"{action}失败：控制口未连接")
+        try:
+            with self._ctrl_lock:
+                sock.sendall(bytes([message_type]))
+        except OSError as exc:
+            self._fail(f"{action}控制中断：{exc}")
+            raise CameraClientError(f"{action}控制中断：{exc}") from exc
 
     def snapshot(self) -> np.ndarray:
         with self._lock:
@@ -141,14 +170,14 @@ class ScrcpyCameraClient:
     def refocus(self) -> None:
         self.tap_focus(0.5, 0.5)
 
-    def _server_jar(self) -> Path:
-        path = self.phone.scrcpy_exe.parent / "scrcpy-server"
-        if not path.exists():
-            raise CameraClientError(f"找不到 scrcpy-server：{path}")
-        return path
-
     def _push_server(self) -> None:
-        self.phone.run("push", str(self._server_jar()), "/data/local/tmp/scrcpy-server.jar", timeout=20)
+        try:
+            self.phone.ensure_server_uploaded()
+        except AdbError as exc:
+            text = str(exc)
+            if any(key in text for key in ("EOF", "copy response", "not found", "offline")):
+                raise CameraClientError("USB 掉线了，请拔线等 3 秒再插。不要连点重新检测。") from exc
+            raise CameraClientError(f"部署相机服务失败：{text}") from exc
 
     def _forward(self) -> None:
         name = f"localabstract:scrcpy_{self._scid:08x}"
@@ -184,9 +213,12 @@ class ScrcpyCameraClient:
             f"camera_fps={self.camera_fps}",
             f"camera_zoom={zoom:.2f}",
             "power_on=false",
-            "stay_awake=true",
+            "stay_awake=false",
             "clipboard_autosync=false",
-            "cleanup=true",
+            # Keep the temporary jar and avoid scrcpy's extra cleanup process.
+            # On Huawei devices that child process may race the camera server
+            # startup and destabilize the USB transport.
+            "cleanup=false",
         ]
         try:
             proc = subprocess.Popen(
@@ -278,6 +310,11 @@ class ScrcpyCameraClient:
                     return
                 flags = int.from_bytes(header[:8], "big")
                 if flags & (1 << 63):
+                    try:
+                        codec.close()
+                    except Exception:
+                        pass
+                    codec = av.CodecContext.create("h264", "r")
                     continue
                 size = int.from_bytes(header[8:12], "big")
                 if size <= 0 or size > 8_000_000:
@@ -298,6 +335,8 @@ class ScrcpyCameraClient:
                     self.last_log.append(f"decode: {exc}")
                     continue
                 for frame in frames:
+                    if not self.camera_active:
+                        continue
                     image = frame.to_ndarray(format="bgr24")
                     with self._lock:
                         self._last_frame = image
@@ -335,6 +374,9 @@ class ScrcpyCameraClient:
             pass
 
     def _kill_stale_servers(self) -> None:
+        if self.phone.skip_stale_kill:
+            self.phone.skip_stale_kill = False
+            return
         try:
             raw = self.phone.try_run("shell", "ps", "-A", timeout=6)
         except AdbError:
@@ -365,15 +407,23 @@ class ScrcpyCameraClient:
         proc = self._proc
         self._proc = None
         if proc is not None and proc.poll() is None:
-            proc.terminate()
             try:
-                proc.wait(timeout=3)
+                # Closing both sockets tells the remote server to exit. Give
+                # the adb shell client time to finish normally: force-killing
+                # adb.exe here can poison the USB transport on some Huawei
+                # devices and leave the whole phone in "offline" state.
+                proc.wait(timeout=5)
             except subprocess.TimeoutExpired:
-                proc.kill()
+                proc.terminate()
+                try:
+                    proc.wait(timeout=2)
+                except subprocess.TimeoutExpired:
+                    proc.kill()
         self._remove_forward()
 
     def _fail(self, message: str) -> None:
         self.running = False
+        self.camera_active = False
         if self._on_error:
             self._on_error(message)
 

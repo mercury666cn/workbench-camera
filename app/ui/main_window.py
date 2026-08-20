@@ -86,6 +86,8 @@ class MainWindow(QMainWindow):
         self._starting = False
         self._backoff = 1
         self._reconnect_at = 0.0
+        self._auto_retry_blocked = False
+        self._initial_probe_pending = True
         self._watch = QTimer(self)
         self._watch.setInterval(3000)
         self._watch.timeout.connect(self._on_watch)
@@ -103,7 +105,7 @@ class MainWindow(QMainWindow):
         self.phone_status.setObjectName("statusWarn")
         self.mac_status = QLabel("LM Studio 未检测")
         self.mac_status.setObjectName("statusWarn")
-        self.hint = QLabel("点预览画面哪里就对哪里。预览时屏幕只变暗不强行熄屏。")
+        self.hint = QLabel("点预览画面哪里就对哪里。关预览会释放相机降温，控制服务静默待命。")
         self.hint.setObjectName("hint")
 
         title = QLabel("工作台相机")
@@ -281,7 +283,7 @@ class MainWindow(QMainWindow):
         self.shot_btn.clicked.connect(self._snapshot)
         self.rec_btn.clicked.connect(self._toggle_record)
         self.settings_btn.clicked.connect(self._open_settings)
-        self.refresh_btn.clicked.connect(lambda: self._refresh_status(list_cameras=True))
+        self.refresh_btn.clicked.connect(self._manual_refresh)
         self.scan_btn.clicked.connect(self._scan_page)
         self.ocr_btn.clicked.connect(lambda: self._run_ocr(False))
         self.retry_btn.clicked.connect(lambda: self._run_ocr(True))
@@ -306,10 +308,9 @@ class MainWindow(QMainWindow):
 
     def _on_tools_ready(self, scrcpy, adb) -> None:
         self.phone = AdbPhone(adb, scrcpy)
+        self._initial_probe_pending = True
         self._watch.start()
-        self._refresh_status()
-        if self._want_preview:
-            QTimer.singleShot(400, self._try_auto_start)
+        self._refresh_status(list_cameras=True)
 
     def _on_tools_failed(self, message: str) -> None:
         self._set_phone_text("工具未就绪", "statusBad")
@@ -337,6 +338,7 @@ class MainWindow(QMainWindow):
         self._run_bg(work)
 
     def _on_phone_status(self, status: PhoneStatus) -> None:
+        self._initial_probe_pending = False
         if status.offline:
             self._usb_offline = True
             self._set_phone_text(status.message or OFFLINE_HINT, "statusBad")
@@ -345,6 +347,7 @@ class MainWindow(QMainWindow):
         if status.connected:
             was_offline = self._usb_offline
             self._usb_offline = False
+            self._apply_camera_preset()
             self._set_phone_text(status.message or "手机已连接（静默）", "statusOk")
             if was_offline:
                 self._backoff = 1
@@ -360,6 +363,7 @@ class MainWindow(QMainWindow):
         self.mac_status.style().polish(self.mac_status)
 
     def _manual_start(self) -> None:
+        self._auto_retry_blocked = False
         self._want_preview = True
         self.config.auto_preview = True
         self.config.save()
@@ -372,7 +376,7 @@ class MainWindow(QMainWindow):
         self.config.auto_preview = False
         self.config.save()
         self._stop_preview(reset_ui=True)
-        self.bench_log.setText("已关闭 · 不再自动重连")
+        self.bench_log.setText("相机已释放 · 控制服务待命")
 
     def _start_preview(self, silent: bool = True) -> bool:
         if self.phone is None:
@@ -403,20 +407,30 @@ class MainWindow(QMainWindow):
                     self.bench_log.setText(status.message)
                 return False
             camera_id = status.back_camera_id or "0"
-            self.stream = CameraStream(self.phone, camera_id)
+            if self.stream is None:
+                self.stream = CameraStream(self.phone, camera_id)
+            else:
+                self.stream.camera_id = camera_id
             self.stream.camera_size = self.config.camera_size
+            self.stream.camera_fps = self.config.camera_fps
             self.stream.camera_zoom = self._zoom()
             self.stream.set_callbacks(
                 on_frame=self.bridge.frame_ready.emit,
                 on_error=self.bridge.camera_error.emit,
             )
             self.stream.start()
+            self.stream.set_zoom(self._zoom())
         except CameraError as exc:
             self.stream = None
+            message = str(exc)
+            if "相机服务" in message or message.strip() == "Aborted":
+                self._auto_retry_blocked = True
+                self.bench_log.setText("相机服务启动失败，请点「重新检测」")
             if not silent:
-                self._alert(str(exc))
+                self._alert(message)
             else:
-                self.bench_log.setText("重连中…")
+                if not self._auto_retry_blocked:
+                    self.bench_log.setText("重连中…")
             return False
         finally:
             self._starting = False
@@ -434,7 +448,6 @@ class MainWindow(QMainWindow):
             self._toggle_record()
         if self.stream:
             self.stream.stop()
-            self.stream = None
         if not reset_ui:
             return
         self.bench_preview.reset()
@@ -450,7 +463,7 @@ class MainWindow(QMainWindow):
         return bool(self.stream and self.stream.running)
 
     def _try_auto_start(self) -> None:
-        if self._usb_offline:
+        if self._usb_offline or self._auto_retry_blocked or self._initial_probe_pending:
             return
         if not self._want_preview or self._is_previewing() or self._starting:
             return
@@ -458,7 +471,7 @@ class MainWindow(QMainWindow):
             return
         if self._start_preview(silent=True):
             return
-        if self._usb_offline:
+        if self._usb_offline or self._auto_retry_blocked:
             return
         self._schedule_reconnect()
 
@@ -478,12 +491,22 @@ class MainWindow(QMainWindow):
         if self._want_preview and not self._is_previewing():
             self._try_auto_start()
 
+    def _manual_refresh(self) -> None:
+        self._auto_retry_blocked = False
+        self._refresh_status(list_cameras=True)
+
     def _on_frame(self, frame: object) -> None:
         if not isinstance(frame, np.ndarray):
             return
         viewed = apply_view(frame, self.config.rotation)
         if self.recorder.recording:
             self.recorder.write(viewed)
+        elif self.recorder.worker_error is not None:
+            try:
+                self.recorder.stop()
+            except Exception as exc:
+                self._reset_record_button()
+                self._alert(str(exc))
         if self.tabs.currentIndex() == 1:
             quad = detect_document(viewed)
             self.scan_preview.show_frame(overlay_quad(viewed, quad))
@@ -564,22 +587,62 @@ class MainWindow(QMainWindow):
             try:
                 frame = self._require_frame()
                 h, w = frame.shape[:2]
-                path = self.recorder.start(self.config.output_path(), (w, h), fps=20)
+                output_size = self._record_output_size((w, h))
+                path = self.recorder.start(
+                    self.config.recording_path(),
+                    (w, h),
+                    fps=self.config.recording_fps,
+                    codec=self.config.recording_codec,
+                    bitrate_mbps=self.config.recording_bitrate_mbps,
+                    encoder_mode=self.config.recording_encoder,
+                    output_size=output_size,
+                )
                 self.rec_btn.setText("停止录像")
                 self.rec_btn.setObjectName("danger")
                 self.rec_btn.style().unpolish(self.rec_btn)
                 self.rec_btn.style().polish(self.rec_btn)
-                self.bench_log.setText(f"录像中 → {path.name}")
+                target = output_size or (w, h)
+                bitrate = (
+                    f"{self.config.recording_bitrate_mbps}Mbps"
+                    if self.config.recording_bitrate_mbps
+                    else "自动码率"
+                )
+                self.bench_log.setText(
+                    f"录像中 · {_resolution_label(target)} · {self.config.recording_fps}fps · "
+                    f"{self.config.recording_codec.upper()} · {bitrate} · {self.recorder.actual_encoder}"
+                )
             except Exception as exc:
                 self._alert(str(exc))
             return
-        path = self.recorder.stop()
+        try:
+            path = self.recorder.stop()
+        except Exception as exc:
+            path = None
+            self._alert(str(exc))
+        self._reset_record_button()
+        self.bench_log.setText(f"录像已保存 {path.name}" if path else "录像已停止")
+
+    def _reset_record_button(self) -> None:
         self.rec_btn.setText("开始录像")
         self.rec_btn.setObjectName("")
         self.rec_btn.setStyleSheet("")
         self.rec_btn.style().unpolish(self.rec_btn)
         self.rec_btn.style().polish(self.rec_btn)
-        self.bench_log.setText(f"录像已保存 {path.name}" if path else "已停止录像")
+
+    def _record_output_size(self, input_size: tuple[int, int]) -> tuple[int, int] | None:
+        configured = self.config.recording_size
+        if configured == "original":
+            return None
+        try:
+            width, height = (int(value) for value in configured.split("x", 1))
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"录像分辨率无效：{configured}") from exc
+        input_width, input_height = input_size
+        if width * height > input_width * input_height:
+            raise ValueError("录像输出不能高于当前相机输入，请先在设置里提高相机分辨率")
+        if input_height > input_width and width > height:
+            width, height = height, width
+        return width, height
 
     def _scan_page(self) -> None:
         try:
@@ -593,7 +656,7 @@ class MainWindow(QMainWindow):
             self.ocr_btn.setEnabled(True)
             self.scan_log.setText(f"已加入第 {page.index} 页")
             self._refresh_export_buttons()
-        except CameraError as exc:
+        except (CameraError, OSError, RuntimeError) as exc:
             self._alert(str(exc))
 
     def _run_ocr(self, only_failed: bool) -> None:
@@ -706,11 +769,46 @@ class MainWindow(QMainWindow):
             self._alert(str(exc))
 
     def _open_settings(self) -> None:
-        dialog = SettingsDialog(self.config, self)
+        camera = self.phone.back_camera() if self.phone else None
+        old_format = (self.config.camera_size, self.config.camera_fps)
+        dialog = SettingsDialog(
+            self.config,
+            self,
+            camera_sizes=camera.sizes if camera else None,
+            camera_fps=camera.fps if camera else None,
+        )
         if dialog.exec():
             self.config = dialog.apply()
             self.job.output_dir = self.config.output_path()
+            new_format = (self.config.camera_size, self.config.camera_fps)
+            if new_format != old_format and self.stream is not None:
+                was_previewing = self._is_previewing()
+                self.stream.shutdown()
+                self.stream = None
+                if was_previewing:
+                    self.bench_log.setText("正在应用新的相机格式…")
+                    QTimer.singleShot(150, lambda: self._start_preview(silent=False))
             self._refresh_status()
+
+    def _apply_camera_preset(self) -> None:
+        if self.phone is None:
+            return
+        camera = self.phone.back_camera()
+        if camera is None or not camera.sizes:
+            return
+        sizes = sorted(camera.sizes, key=_size_pixels, reverse=True)
+        if self.config.camera_preset == "max":
+            size = "3840x2160" if "3840x2160" in sizes else sizes[0]
+            fps = 30 if 30 in camera.fps else max(camera.fps or [24])
+        elif self.config.camera_preset == "smooth":
+            size = "1920x1080" if "1920x1080" in sizes else sizes[-1]
+            fps = 60 if 60 in camera.fps else max(camera.fps or [30])
+        else:
+            return
+        if (size, fps) != (self.config.camera_size, self.config.camera_fps):
+            self.config.camera_size = size
+            self.config.camera_fps = fps
+            self.config.save()
 
     def _require_frame(self) -> np.ndarray:
         if not self.stream:
@@ -755,7 +853,13 @@ class MainWindow(QMainWindow):
         self._want_preview = False
         self._watch.stop()
         if self.stream:
-            self.stream.stop()
+            self.stream.shutdown()
+            self.stream = None
+        if self.phone is not None:
+            try:
+                self.phone.restore_after_preview()
+            except Exception:
+                pass
         if self.recorder.recording:
             self.recorder.stop()
         super().closeEvent(event)
@@ -766,3 +870,22 @@ def _dot() -> QLabel:
     label.setObjectName("hint")
     label.setAlignment(Qt.AlignmentFlag.AlignCenter)
     return label
+
+
+def _size_pixels(size: str) -> int:
+    try:
+        width, height = (int(value) for value in size.split("x", 1))
+        return width * height
+    except (TypeError, ValueError):
+        return 0
+
+
+def _resolution_label(size: tuple[int, int]) -> str:
+    pixels = size[0] * size[1]
+    if pixels >= 3840 * 2160:
+        return "4K"
+    if pixels >= 1920 * 1080:
+        return "1080p"
+    if pixels >= 1280 * 720:
+        return "720p"
+    return f"{size[0]}×{size[1]}"

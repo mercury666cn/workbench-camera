@@ -31,7 +31,7 @@ class CameraStream:
 
     @property
     def running(self) -> bool:
-        return bool(self._client and self._client.running)
+        return bool(self._client and self._client.running and self._client.camera_active)
 
     def set_callbacks(self, on_frame: FrameCallback | None, on_error: ErrorCallback | None) -> None:
         self._on_frame = on_frame
@@ -42,6 +42,15 @@ class CameraStream:
     def start(self) -> None:
         if self.running:
             return
+        if self._client is not None and self._client.running:
+            try:
+                self._client.resume_camera()
+            except CameraClientError as exc:
+                raise CameraError(_clean_error(str(exc))) from exc
+            return
+        if self._client is not None:
+            self._client.stop()
+            self._client = None
         client = ScrcpyCameraClient(
             self.phone,
             camera_id=self.camera_id or "0",
@@ -57,13 +66,20 @@ class CameraStream:
         self._client = client
 
     def stop(self) -> None:
+        if self._client is not None:
+            try:
+                self._client.pause_camera()
+            except CameraClientError as exc:
+                raise CameraError(_clean_error(str(exc))) from exc
+
+    def shutdown(self) -> None:
         client = self._client
         self._client = None
         if client is not None:
             client.stop()
 
     def snapshot(self) -> np.ndarray:
-        if self._client is None:
+        if not self.running or self._client is None:
             raise CameraError("请先开启预览")
         try:
             return self._client.snapshot()
@@ -99,6 +115,8 @@ def save_jpeg(frame: np.ndarray, path: Path, quality: int = 92) -> Path:
 
 def _clean_error(message: str) -> str:
     text = message.strip()
+    if text == "Aborted":
+        return "相机服务未完整启动。请点「重新检测」；程序会重新校验并部署服务。"
     if "Could not open camera" in text or "Failed to open camera" in text:
         return "后置相机打不开。华为可能未放行 Camera2 相机源，软件不会点亮屏幕凑合。\n" + text
     return text

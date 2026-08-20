@@ -14,8 +14,15 @@ class AppConfig:
     lmstudio_api_key: str = "lm-studio"
     output_dir: str = field(default_factory=lambda: str(default_output_dir()))
     camera_size: str = "1920x1080"
-    camera_fps: int = 24
-    ocr_max_side: int = 2000
+    camera_fps: int = 30
+    camera_preset: str = "max"
+    recording_dir: str = field(default_factory=lambda: str(default_output_dir() / "录像"))
+    recording_size: str = "original"
+    recording_fps: int = 24
+    recording_codec: str = "h265"
+    recording_encoder: str = "auto"
+    recording_bitrate_mbps: int = 0
+    ocr_max_side: int = 3000
     ocr_timeout_sec: int = 180
     rotation: int = 0
     zoom: float = 1.0
@@ -42,5 +49,10 @@ class AppConfig:
 
     def output_path(self) -> Path:
         path = Path(self.output_dir)
+        path.mkdir(parents=True, exist_ok=True)
+        return path
+
+    def recording_path(self) -> Path:
+        path = Path(self.recording_dir)
         path.mkdir(parents=True, exist_ok=True)
         return path

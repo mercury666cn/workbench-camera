@@ -45,7 +45,20 @@ class BatchJob:
         image = warp_document(frame) if auto_warp else frame
         index = len(self.pages) + 1
         path = self.job_dir / f"page_{index:03d}.jpg"
-        cv2.imwrite(str(path), image)
+        try:
+            ok, encoded = cv2.imencode(
+                ".jpg",
+                image,
+                [int(cv2.IMWRITE_JPEG_QUALITY), 95],
+            )
+            if not ok or encoded.size == 0:
+                raise RuntimeError("JPEG 编码失败")
+            jpeg = encoded.tobytes()
+            written = path.write_bytes(jpeg)
+            if written != len(jpeg) or not path.is_file() or path.stat().st_size == 0:
+                raise RuntimeError("写入后的图片文件不完整")
+        except (cv2.error, OSError, RuntimeError, ValueError) as exc:
+            raise RuntimeError(f"保存扫描图片失败：{path}（{exc}）") from exc
         page = ScanPage(index=index, image_path=path)
         self.pages.append(page)
         return page
@@ -66,10 +79,14 @@ class BatchJob:
             page.error = ""
             if on_page:
                 on_page(page)
-            image = cv2.imread(str(page.image_path))
+            try:
+                encoded = np.fromfile(page.image_path, dtype=np.uint8)
+                image = cv2.imdecode(encoded, cv2.IMREAD_COLOR) if encoded.size else None
+            except (cv2.error, OSError, ValueError):
+                image = None
             if image is None:
                 page.status = PageStatus.error
-                page.error = "读不到页图"
+                page.error = f"读不到页图：{page.image_path}"
                 if on_page:
                     on_page(page)
                 continue

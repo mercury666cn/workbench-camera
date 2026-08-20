@@ -28,8 +28,10 @@ This is **old Android + USB = a live picture on your computer**. It is not a clo
 - Rear-camera live preview over USB — not a screen mirror
 - Real zoom (the lens / camera zoom, not a PC crop)
 - Tap the preview to focus; Refocus hunts the center without restarting
+- Pick a camera size the phone actually supports, including 4K when available
+- Closing preview releases the camera; the control service stays ready
 - Rotate the view on the PC
-- Snapshot and record
+- Snapshot and record to H.264 / H.265 (hardware first, software fallback)
 
 ### Scan and OCR
 
@@ -105,7 +107,7 @@ Preview, zoom, focus, capture, and record work without OCR.
 
 ## How it works
 
-The PC pushes a patched scrcpy 4.1 server over ADB (not installed as a phone app) and talks to Camera2 on the same session used for zoom.
+The PC writes a patched scrcpy 4.1 server over ADB (not installed as a phone app) and talks to Camera2 on the same session used for zoom. A new phone only needs USB debugging authorized once.
 
 ```
 Phone camera  --USB/ADB-->  patched scrcpy-server  -->  this Windows app
@@ -115,7 +117,7 @@ We keep the official scrcpy 4.1 protocol. After the official Windows zip is down
 
 ## Known limits
 
-- Some Huawei devices drop USB (`offline`) if the screen is forced asleep or if you run `dumpsys media.camera` during preview. Unplug, wait a few seconds, plug back in. Do not spam reconnect.
+- Some Huawei devices drop USB (`offline`) after a broken file-sync push or if you run `dumpsys media.camera` during preview. Unplug, wait a few seconds, plug back in. Do not spam reconnect.
 - On Camera2 **LIMITED** hardware, continuous AF is weaker than the stock Camera app.
 - This is not a phone-screen mirror, not IP Webcam, and not a cloud security camera.
 
