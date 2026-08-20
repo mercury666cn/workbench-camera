@@ -5,13 +5,22 @@
 [English](README.md) · [简体中文](README.zh-CN.md)
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-2f6fed)](LICENSE)
+[![Version](https://img.shields.io/badge/version-1.1.0-2f6fed)](https://github.com/mercury666cn/workbench-camera)
 [![Python](https://img.shields.io/badge/python-3.11+-3776AB)](https://www.python.org/)
 [![Windows](https://img.shields.io/badge/os-Windows%2010%2B-0078D6)](https://github.com/mercury666cn/workbench-camera)
 [![PySide6](https://img.shields.io/badge/PySide6-6.8.3-41CD52)](requirements.txt)
 
-抽屉里那部旧安卓，镜头往往还能用。打开 USB 调试插上电脑即可：手机不用装 App，也不用再当主力机。预览和操作都在电脑上，手机只当镜头。
+抽屉里那部旧安卓，镜头往往还能用。打开 USB 调试插上电脑即可：手机不用装 App，也不用再当主力机。预览和操作都在电脑上，手机只当镜头。手机支持 4K 就用 4K，录像可选 H.264 / H.265。换一台新手机，授权一次 USB 调试就能自动部署。
 
 ![工作台相机封面](docs/hero.png)
+
+## 1.1.0 更新内容
+
+- **手机支持就上 4K** — 设置里只列出这台手机真实支持的分辨率和帧率；「最高画质」优先 `3840×2160`
+- **录像参数可调** — 路径、输出分辨率、帧率、H.264 / H.265、码率；优先硬件编码，失败自动回退软件
+- **关预览不再拆服务** — 相机关掉降温，点选对焦继续待命
+- **换机更稳** — 不装 APK，补丁服务走 ADB 写入并校验；不再用华为容易掉线的 `adb push`
+- **中文路径 OCR 修好了** — 扫描页能正常保存、读取；LM Studio 会自动用当前已加载的模型
 
 ## 适合做什么
 
@@ -95,6 +104,7 @@ python -m venv .venv
 | 重新对焦 | 对画面中心再找一次，**不重启取流** |
 | 变焦拉条 | 相机变焦，预览中即时生效 |
 | 旋转 | 只转电脑上的画面（点击坐标会还原到相机原图） |
+| 设置 | 相机分辨率 / 帧率，录像路径 / 编码 / 码率，OCR 质量 |
 | 扫描 | 连拍多页，设好 LM Studio 后可识别 |
 
 ### 可选：LM Studio OCR

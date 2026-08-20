@@ -5,13 +5,22 @@
 [English](README.md) · [简体中文](README.zh-CN.md)
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-2f6fed)](LICENSE)
+[![Version](https://img.shields.io/badge/version-1.1.0-2f6fed)](https://github.com/mercury666cn/workbench-camera)
 [![Python](https://img.shields.io/badge/python-3.11+-3776AB)](https://www.python.org/)
 [![Windows](https://img.shields.io/badge/os-Windows%2010%2B-0078D6)](https://github.com/mercury666cn/workbench-camera)
 [![PySide6](https://img.shields.io/badge/PySide6-6.8.3-41CD52)](requirements.txt)
 
-That Android in the drawer still has a camera. Plug it into Windows with USB debugging — no app on the phone, no need to keep it as your daily driver. The computer runs the preview; the phone is just the lens.
+That Android in the drawer still has a camera. Plug it into Windows with USB debugging — no app on the phone, no need to keep it as your daily driver. The computer runs the preview; the phone is just the lens. If the phone can do 4K, the software will use it. Recording is H.264 / H.265. A new phone only needs USB debugging authorized once.
 
 ![Workbench Camera cover](docs/hero.png)
+
+## What’s new in 1.1.0
+
+- **4K when the phone supports it** — settings list real camera sizes and frame rates; “highest quality” prefers `3840×2160`
+- **Recording you can actually set** — path, output size, FPS, H.264 / H.265, bitrate; hardware encode first, software fallback
+- **Close preview without killing the service** — the camera cools down, tap-to-focus stays ready
+- **Safer new-phone setup** — no APK; the patched server is written over ADB and checked; Huawei’s fragile `adb push` is no longer used
+- **OCR that works on Chinese Windows paths** — scan pages save and load correctly; LM Studio picks the loaded model automatically
 
 ## What it’s for
 
@@ -95,6 +104,7 @@ Files are saved under `Documents\工作台相机` by default.
 | Refocus | Hunt the center again — does **not** restart the camera |
 | Zoom slider | Camera zoom, applied live |
 | Rotate | Rotate the view on the PC (clicks map back to the sensor) |
+| Settings | Camera size / FPS, recording path / codec / bitrate, OCR quality |
 | Scan | Capture pages, then run OCR if LM Studio is set up |
 
 ### Optional OCR (LM Studio)
