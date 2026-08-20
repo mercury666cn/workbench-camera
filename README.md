@@ -1,5 +1,7 @@
 # Workbench Camera
 
+**Reuse an old Android phone as a Windows camera**
+
 [English](README.md) · [简体中文](README.zh-CN.md)
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-2f6fed)](LICENSE)
@@ -7,16 +9,39 @@
 [![Windows](https://img.shields.io/badge/os-Windows%2010%2B-0078D6)](https://github.com/mercury666cn/workbench-camera)
 [![PySide6](https://img.shields.io/badge/PySide6-6.8.3-41CD52)](requirements.txt)
 
-Turn any Android phone into a Windows desk and document camera. Live preview, real zoom, tap-to-focus, capture, record, and optional OCR — no app to install on the phone.
+That Android in the drawer still has a camera. Plug it into Windows with USB debugging — no app on the phone, no need to keep it as your daily driver. The computer runs the preview; the phone is just the lens.
 
 ![Workbench Camera cover](docs/hero.png)
 
+## What it’s for
+
+- **Desk camera** — watch a workbench, soldering, or crafts from above
+- **Document camera** — point at paper, scan pages, optional OCR
+- **Wired monitor** — leave it aimed at a room, doorway, or desk and watch (or record) on the PC
+
+This is **old Android + USB = a live picture on your computer**. It is not a cloud PTZ cam: no motion alerts, no phone app for remote viewing, no 24/7 NVR kit.
+
 ## Features
 
-- Live rear-camera preview over USB — not a screen mirror
-- Real camera zoom and tap-to-focus on the preview
-- Snapshot, record, and multi-page scan
-- Optional OCR through your own LM Studio endpoint
+### Camera
+
+- Rear-camera live preview over USB — not a screen mirror
+- Real zoom (the lens / camera zoom, not a PC crop)
+- Tap the preview to focus; Refocus hunts the center without restarting
+- Rotate the view on the PC
+- Snapshot and record
+
+### Scan and OCR
+
+- Multi-page scan
+- Optional [LM Studio](https://lmstudio.ai/) OCR
+- Export text or Word
+
+### Why an old phone
+
+- Retired or unused Androids work if USB debugging still turns on
+- The PC is in control; the phone stays a dumb lens
+- No extra camera app to install or keep open on the phone
 
 ## Interface
 
@@ -57,7 +82,7 @@ Files are saved under `Documents\工作台相机` by default.
 
 - Windows 10 or later
 - Python 3.11 or newer
-- An Android phone with USB debugging
+- An Android phone with USB debugging (a spare or old one is enough)
 - A USB cable that carries data (not charge-only)
 
 ## Usage
@@ -92,7 +117,7 @@ We keep the official scrcpy 4.1 protocol. After the official Windows zip is down
 
 - Some Huawei devices drop USB (`offline`) if the screen is forced asleep or if you run `dumpsys media.camera` during preview. Unplug, wait a few seconds, plug back in. Do not spam reconnect.
 - On Camera2 **LIMITED** hardware, continuous AF is weaker than the stock Camera app.
-- This is not a phone-screen mirror and not IP Webcam.
+- This is not a phone-screen mirror, not IP Webcam, and not a cloud security camera.
 
 ## Acknowledgments
 

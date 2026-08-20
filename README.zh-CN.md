@@ -1,5 +1,7 @@
 # 工作台相机
 
+**把闲置的安卓旧手机，变成 Windows 摄像头**
+
 [English](README.md) · [简体中文](README.zh-CN.md)
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-2f6fed)](LICENSE)
@@ -7,16 +9,39 @@
 [![Windows](https://img.shields.io/badge/os-Windows%2010%2B-0078D6)](https://github.com/mercury666cn/workbench-camera)
 [![PySide6](https://img.shields.io/badge/PySide6-6.8.3-41CD52)](requirements.txt)
 
-把任意安卓手机的后置镜头，变成 Windows 上的工作台 / 文档相机。实时预览、真变焦、点哪对哪、抓拍录像、连扫，可选 OCR。手机不用装 App。
+抽屉里那部旧安卓，镜头往往还能用。打开 USB 调试插上电脑即可：手机不用装 App，也不用再当主力机。预览和操作都在电脑上，手机只当镜头。
 
 ![工作台相机封面](docs/hero.png)
 
+## 适合做什么
+
+- **工作台相机** — 俯拍桌面、焊接、手工
+- **文档相机** — 对着纸面拍、连扫，可选识别
+- **有线监控** — 对着房间、门口或桌面，在电脑上看画面，也能录像
+
+这就是 **旧安卓 + USB = 电脑上的实时画面**。它不是云台网络摄像头：没有移动侦测推送、没有远程看的手机 App、没有 24 小时无人值守套件。
+
 ## 功能
 
-- USB 后置预览，不是镜像手机桌面
-- 相机变焦，点预览画面哪里就对哪里
-- 抓拍、录像、多页连扫
-- 可选接到你自己的 LM Studio 做识别
+### 镜头
+
+- USB 后置实时预览，不是镜像手机桌面
+- 真变焦（相机变焦，不是电脑裁中间放大）
+- 点预览哪里就对哪里；「重新对焦」不关相机
+- 电脑上旋转画面
+- 抓拍、录像
+
+### 扫描与识别
+
+- 多页连扫
+- 可选接到 [LM Studio](https://lmstudio.ai/) 做 OCR
+- 导出文本 / Word
+
+### 为什么用旧手机
+
+- 换下来或闲置的安卓，只要还能开 USB 调试就能用
+- 电脑全控，手机当哑巴镜头
+- 不用在手机上再装、再开一个相机 App
 
 ## 界面
 
@@ -57,7 +82,7 @@ python -m venv .venv
 
 - Windows 10 或更新
 - Python 3.11 或更新
-- 安卓手机，打开 USB 调试
+- 安卓手机，打开 USB 调试（闲置旧机即可）
 - 能传数据的 USB 线（不要只能充电的线）
 
 ## 用法
@@ -92,7 +117,7 @@ python -m venv .venv
 
 - 部分华为机会在强制熄屏，或预览中跑 `dumpsys media.camera` 时把 USB 打成 `offline`。掉线了就拔线等几秒再插，不要连点重新检测。
 - Camera2 **LIMITED** 机型的连续对焦会比官方相机 App 弱一截。
-- 这不是投屏，也不是 IP Webcam。
+- 这不是投屏，不是 IP Webcam，也不是云端安防摄像头。
 
 ## 致谢
 
